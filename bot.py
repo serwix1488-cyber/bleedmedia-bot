@@ -47,11 +47,22 @@ async def download_media(callback: CallbackQuery):
     status_msg = await callback.message.answer("Ебашу, подожди немного...")
     is_audio = (callback.data == "dl_audio")
     
-    # === TIKTOK ===
+# === TIKTOK ===
     if "tiktok.com" in url:
         try:
-            async with aiohttp.ClientSession() as session:
+            # Маскируемся под реального юзера с винды
+            headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                "Accept": "application/json",
+            }
+            async with aiohttp.ClientSession(headers=headers) as session:
                 async with session.post("https://www.tikwm.com/api/", data={"url": url}) as resp:
+                    # Проверяем, не кинул ли сайт нам HTML-заглушку вместо JSON
+                    content_type = resp.headers.get('Content-Type', '')
+                    if 'application/json' not in content_type:
+                        await status_msg.edit_text("Бля, защита TikWM заблочила IP Рендера. Попробуй позже.")
+                        return
+                    
                     data = await resp.json()
             
             if data.get("code") == 0:
