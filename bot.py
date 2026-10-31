@@ -3,6 +3,7 @@ import os
 import sys
 import glob
 import subprocess
+import random
 import aiohttp
 from aiogram import Bot, Dispatcher, F
 from aiogram.types import Message, CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton, InputMediaPhoto, FSInputFile
@@ -47,20 +48,23 @@ async def download_media(callback: CallbackQuery):
     status_msg = await callback.message.answer("Ебашу, подожди немного...")
     is_audio = (callback.data == "dl_audio")
     
-# === TIKTOK ===
+    # === TIKTOK ===
     if "tiktok.com" in url:
         try:
-            # Маскируемся под реального юзера с винды
+            # Генерим рандомный домашний айпишник для обхода блокировки
+            fake_ip = f"{random.randint(11, 197)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(1, 255)}"
             headers = {
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                 "Accept": "application/json",
+                "X-Forwarded-For": fake_ip,
+                "X-Real-IP": fake_ip
             }
+            
             async with aiohttp.ClientSession(headers=headers) as session:
                 async with session.post("https://www.tikwm.com/api/", data={"url": url}) as resp:
-                    # Проверяем, не кинул ли сайт нам HTML-заглушку вместо JSON
                     content_type = resp.headers.get('Content-Type', '')
                     if 'application/json' not in content_type:
-                        await status_msg.edit_text("Бля, защита TikWM заблочила IP Рендера. Попробуй позже.")
+                        await status_msg.edit_text("Бля, защита TikWM все равно блочит IP Рендера. Попробуй позже.")
                         return
                     
                     data = await resp.json()
@@ -107,11 +111,8 @@ async def download_media(callback: CallbackQuery):
         await status_msg.edit_text("Парсю Спотик и качаю трек, подожди немного...")
         try:
             def run_spotdl():
-                # Запоминаем, какие mp3 были до скачивания
                 before = set(glob.glob("*.mp3"))
-                # Качаем через системный spotdl
                 subprocess.run([sys.executable, "-m", "spotdl", url], check=True, capture_output=True)
-                # Смотрим, какой файл появился
                 after = set(glob.glob("*.mp3"))
                 new_files = after - before
                 return list(new_files)[0] if new_files else None
@@ -159,7 +160,6 @@ async def download_media(callback: CallbackQuery):
         except Exception as e:
             await status_msg.edit_text(f"Пиздец с Саундклаудом:\n{e}")
 
-# Заглушка для бесплатного хостинга
 async def handle_ping(request):
     return web.Response(text="Бот хуярит, всё ок!")
 
